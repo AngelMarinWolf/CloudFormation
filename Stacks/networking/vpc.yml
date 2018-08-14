@@ -1,0 +1,300 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  One of the most important modules, inside of this module is defined the way to build a VPC with Public
+  and Private Subnets, Routing tables and Gateways.
+Parameters:
+  ProjectName:
+    Description: 'A logical name that will be used as prefix and tag for the created resources.'
+    Type: String
+  ProjectEnvironment:
+    Description: 'A logical name that will be used as prefix and tag for the created resources.'
+    Type: String
+    Default: develop
+    AllowedValues:
+      - develop
+      - staging
+      - production
+    ConstraintDescription: Select a valid environment
+  VPCSelection:
+    Description: >-
+      This setting will control if the Cloudformer Web server will launch in the
+      default VPC or if a new VPC will be created, or if you wish to launch into
+      an existing non-default VPC.
+    Type: String
+    Default: CreateNewVPC
+    AllowedValues:
+      - Default
+      - CreateNewVPC
+    ConstraintDescription: must be either Default or CreateNewVPC
+Conditions:
+  DefaultVPC: !Equals
+    - !Ref VPCSelection
+    - Default
+  CreateNewVPC: !Equals
+    - !Ref VPCSelection
+    - CreateNewVPC
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'vpc'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - '0'
+        - !GetAZs
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'Public'
+              - !Select
+                - '0'
+                - !GetAZs
+                  Ref: 'AWS::Region'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - '1'
+        - !GetAZs
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'Public'
+              - !Select
+                - '1'
+                - !GetAZs
+                  Ref: 'AWS::Region'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.10.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - '0'
+        - !GetAZs
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'Private'
+              - !Select
+                - '0'
+                - !GetAZs
+                  Ref: 'AWS::Region'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - '1'
+        - !GetAZs
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'Private'
+              - !Select
+                - '1'
+                - !GetAZs
+                  Ref: 'AWS::Region'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'InternetGateway'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  ElasticIP1:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  ElasticIP2:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  NatGateway1:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt
+        - ElasticIP1
+        - AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'NatGateway'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  NatGateway2:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt
+        - ElasticIP2
+        - AllocationId
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'NatGateway'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  AttachInternetGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'PublicRoute'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  PrivateRouteTable1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'PrivateRoute'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  PrivateRouteTable2:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '_'
+            - - 'PrivateRoute'
+              - !Ref ProjectName
+              - !Ref ProjectEnvironment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref ProjectEnvironment
+  RouteToInternet:
+    Type: 'AWS::EC2::Route'
+    DependsOn: AttachInternetGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  RouteToNAT1:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+  RouteToNAT2:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+  PublicSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
